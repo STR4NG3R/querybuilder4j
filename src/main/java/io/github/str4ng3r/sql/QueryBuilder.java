@@ -42,7 +42,7 @@ abstract class QueryBuilder<T> {
     this.t = t;
   }
 
-  public Parameter addParameter(String column, String value) {
+  public Parameter addParameter(String column, Object value) {
     return this.parameter.addParameter(column, value);
   }
 
@@ -64,14 +64,14 @@ abstract class QueryBuilder<T> {
   public SqlParameter getSqlAndParameters() throws InvalidSqlGenerationException {
     String sql = this.write();
 
-    List<String> orderParameters = parameter.sortParameters(parameter.getIndexesOfOcurrences(sql));
+    List<Object> orderParameters = parameter.sortParameters(parameter.getIndexesOfOcurrences(sql));
     sql = parameter.replaceParamatersOnSql(sql);
 
     return new SqlParameter(sql, orderParameters);
   }
 
   /**
-   * Generate SQL Statement with paramaters as an dictionary (this is a little bit more fast)
+   * Generate SQL Statement with paramaters as a dictionary (this is a little bit more fast)
    *
    * @return SqlParameter
    * @throws InvalidSqlGenerationException 

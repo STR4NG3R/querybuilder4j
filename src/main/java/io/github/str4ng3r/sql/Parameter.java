@@ -18,12 +18,9 @@
  */
 package io.github.str4ng3r.sql;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
+import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import java.util.stream.Collectors;
 
 /**
  *
@@ -32,9 +29,9 @@ import java.util.stream.Collectors;
 public final class Parameter {
   public static String p = "(:[a-zA-Z0-9\\.]+)";
   public static Pattern pattern = Pattern.compile(p);
-  protected HashMap<String, String> parameters = new HashMap<>();
+  HashMap<String, Object> parameters = new HashMap<>();
 
-  public Parameter addParameter(String column, String value) {
+  public Parameter addParameter(String column, Object value) {
     this.parameters.put(":" + column, value);
     return this;
   }
@@ -48,7 +45,25 @@ public final class Parameter {
   }
 
   String replaceParamatersOnSql(String sql) {
-    return sql.replaceAll(p, "?");
+    Matcher m = pattern.matcher(sql);
+    StringBuffer sb = new StringBuffer();
+
+    while (m.find()) {
+      String param = m.group();
+      Object value = parameters.get(param);
+
+      if (value instanceof Collection<?>) {
+        int size = ((Collection<?>) value).size();
+        String placeholders =
+                String.join(",", Collections.nCopies(size, "?"));
+        m.appendReplacement(sb, placeholders);
+      } else {
+        m.appendReplacement(sb, "?");
+      }
+    }
+
+    m.appendTail(sb);
+    return sb.toString();
   }
 
   static String setParameter(String sql, String... parameters) {
@@ -57,7 +72,7 @@ public final class Parameter {
     StringBuffer sb = new StringBuffer();
 
     while (m.find() && c < parameters.length) {
-      StringBuffer buf = new StringBuffer(m.group());
+      StringBuilder buf = new StringBuilder(m.group());
       buf.replace(m.start(groupPosition) - m.start(), m.end(groupPosition) - m.start(), parameters[c++]);
       m.appendReplacement(sb, buf.toString());
     }
@@ -66,8 +81,20 @@ public final class Parameter {
     return sb.toString();
   }
 
-  List<String> sortParameters(List<String> indexes) {
-    return indexes.stream().filter(p -> this.parameters.containsKey(p)).map((p) -> this.parameters.get(p)).collect(Collectors.toList());
+  List<Object> sortParameters(List<String> indexes) {
+    List<Object> sorted = new ArrayList<>();
+
+    for (String key : indexes) {
+
+      Object value = parameters.get(key);
+
+      if (value instanceof Collection<?>) {
+        sorted.addAll((Collection<?>) value);
+      } else {
+        sorted.add(value);
+      }
+    }
+    return sorted;
   }
 
   /**
@@ -76,6 +103,6 @@ public final class Parameter {
    * @param parameterToRemove
    */
   void filterParameter(List<String> parameterToRemove) {
-    parameterToRemove.parallelStream().forEach(p -> parameters.remove(p));
+    parameterToRemove.forEach(p -> parameters.remove(p));
   }
 }

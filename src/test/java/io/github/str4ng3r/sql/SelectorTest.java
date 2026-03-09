@@ -23,13 +23,9 @@ import org.junit.Test;
 
 import io.github.str4ng3r.exceptions.InvalidCurrentPageException;
 import io.github.str4ng3r.exceptions.InvalidSqlGenerationException;
-import io.github.str4ng3r.sql.Constants;
-import io.github.str4ng3r.sql.Delete;
-import io.github.str4ng3r.sql.Pagination;
-import io.github.str4ng3r.sql.Selector;
-import io.github.str4ng3r.sql.SqlParameter;
-import io.github.str4ng3r.sql.Update;
 import io.github.str4ng3r.sql.Join.JOIN;
+
+import java.util.Arrays;
 
 /**
  *
@@ -133,6 +129,19 @@ public class SelectorTest {
 
     check(exp, act.sql);
     assertEquals(0, act.getListParameters().size());
+  }
+
+  @Test
+  public void testWhereIn() throws InvalidSqlGenerationException {
+    Selector s = new Selector();
+
+    SqlParameter act =      s.select("holidays")
+            .where("id IN (:ids)", s.addParameter("ids", Arrays.asList(1,2,3)))
+            .getSqlAndParameters();
+
+    String exp = "SELECT * FROM holidays WHERE id IN (?,?,?)";
+    check(exp, act.sql);
+    assertEquals(3, act.getListParameters().size());
   }
 
   private void check(String exp, String act) {

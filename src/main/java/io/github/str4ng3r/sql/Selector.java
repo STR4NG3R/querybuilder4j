@@ -161,9 +161,8 @@ public class Selector extends QueryBuilder<Selector> {
 
     if (this.groupBy != null)
       sql.append(" GROUP BY ").append(this.groupBy.write());
-
-    this.having.write(sql);
-
+    if (this.having != null)
+      this.having.write(sql);
     if (this.orderBy != null)
       sql.append(" ORDER BY ").append(this.orderBy.write());
 

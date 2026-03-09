@@ -50,7 +50,7 @@ public class UpdateTest {
         Update u = baseUpdateTest();
         u.andWhere("u.id = :id", u.addParameter("id", data.get("id")));
         data.put("a.address", "A beautiful city");
-        data.forEach((k, v) -> u.addParameter(k, v));
+        data.forEach(u::addParameter);
         u.getSqlAndParameters();
     }
 
@@ -59,7 +59,7 @@ public class UpdateTest {
         HashMap<String, String> data = testBaseData();
         Update u = baseUpdateTest();
         u.andWhere("u.id = :id", u.addParameter("id", data.get("id")));
-        data.forEach((k, v) -> u.addParameter(k, v));
+        data.forEach(u::addParameter);
         String exp = "UPDATE users u SET u.name = ?, u.lastName1 = ?, u.lastName0 = ? INNER JOIN address a ON u.id = a.user_id WHERE u.id = ?";
         check(exp, u.getSqlAndParameters().sql);
     }

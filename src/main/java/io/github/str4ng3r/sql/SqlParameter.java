@@ -28,25 +28,25 @@ import java.util.List;
  */
 public class SqlParameter {
   public String sql;
-  List<String> listParamaters = new ArrayList<>();
-  HashMap<String, String> dictionarieParameters;
+  List<Object> listParamaters = new ArrayList<>();
+  HashMap<String, Object> dictionarieParameters;
   protected Pagination p = null;
 
-  SqlParameter(String sql, List<String> parameter) {
+  SqlParameter(String sql, List<Object> parameter) {
     this.sql = sql;
     this.listParamaters = parameter;
   }
 
-  public SqlParameter(String sql, HashMap<String, String> parameters) {
+  public SqlParameter(String sql, HashMap<String, Object> parameters) {
     this.sql = sql;
     this.dictionarieParameters = parameters;
   }
 
-  public List<String> getListParameters(){
+  public List<Object> getListParameters(){
     return this.listParamaters;
   }
   
-  public HashMap<String, String> dictionarieParameters(){
+  public HashMap<String, Object> dictionarieParameters(){
     return this.dictionarieParameters;
   }
 

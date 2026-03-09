@@ -38,7 +38,7 @@ class Tables {
   public static enum ACTIONSQL {
     DELETE("DELETE "), UPDATE("UPDATE "), SELECT("SELECT ");
 
-    public String action;
+    public final String action;
 
     ACTIONSQL(String action) {
       this.action = action;
