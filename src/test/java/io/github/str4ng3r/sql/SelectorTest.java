@@ -136,12 +136,19 @@ public class SelectorTest {
     Selector s = new Selector();
 
     SqlParameter act =      s.select("holidays")
-            .where("id IN (:ids)", s.addParameter("ids", Arrays.asList(1,2,3)))
+            .where("created_date < :createdDate", s.addParameter("createdDate", "12/02/2023"))
+            .andWhere("id IN (:ids)", s.addParameter("fkIds", Arrays.asList(1,2,3)))
+            .andWhere("updated_at < :updatedAt", s.addParameter("updatedAt", "12/02/2023"))
+            .andWhere("fk_id IN (:fkIds)", s.addParameter("ids", Arrays.asList("s32dfa", "fa23fd")))
             .getSqlAndParameters();
 
-    String exp = "SELECT * FROM holidays WHERE id IN (?,?,?)";
+    String exp = "SELECT * FROM holidays WHERE created_date < ? AND id IN (?,?) AND updated_at < ? AND fk_id IN (?,?,?)";
+    System.out.println(act.getListParameters());
+
     check(exp, act.sql);
-    assertEquals(3, act.getListParameters().size());
+    assertEquals(7, act.getListParameters().size());
+    assertEquals("12/02/2023", act.getListParameters().get(0));
+    assertEquals(1, act.getListParameters().get(4));
   }
 
   private void check(String exp, String act) {
