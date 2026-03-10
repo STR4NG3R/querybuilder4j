@@ -1,21 +1,21 @@
 /*
- *
+ * 
  * Copyright (c) 2023 Pablo Eduardo Martinez Solis
- *
+ * 
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- *
+ * 
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- *
+ * 
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-package io.github.str4ng3r.common;
+package io.github.str4ng3r.sql;
 
 import static org.junit.Assert.assertEquals;
 
@@ -24,7 +24,7 @@ import java.util.HashMap;
 import org.junit.Test;
 
 import io.github.str4ng3r.exceptions.InvalidSqlGenerationException;
-import io.github.str4ng3r.common.Join.JOIN;
+import io.github.str4ng3r.sql.Join.JOIN;
 
 public class UpdateTest {
 
@@ -44,27 +44,22 @@ public class UpdateTest {
         return dataToUpdate;
     }
 
-    @Test
+    @Test(expected = InvalidSqlGenerationException.class)
     public void failToUpdateExcludeColumn() throws InvalidSqlGenerationException {
         HashMap<String, String> data = testBaseData();
-        Update u = baseUpdateTest()
-                .where("u.id = :id", (p) -> p.put("id", 1));
-        //u.andWhere("u.id = :id", u.addParameter("id", data.get("id")));
+        Update u = baseUpdateTest();
+        u.andWhere("u.id = :id", u.addParameter("id", data.get("id")));
         data.put("a.address", "A beautiful city");
-        data.forEach((k, v) -> {
-            u.setColumnsValuesToUpdate(cv -> {
-                cv.put(k, v);
-            });
-        });
-        System.out.println(u.getSqlAndParameters());
-
+        data.forEach(u::addParameter);
+        u.getSqlAndParameters();
     }
 
+    @Test()
     public void update() throws InvalidSqlGenerationException {
         HashMap<String, String> data = testBaseData();
         Update u = baseUpdateTest();
-        // u.andWhere("u.id = :id", u.addParameter("id", data.get("id")));
-        data.forEach((k, v) -> u.addParameter(k, v));
+        u.andWhere("u.id = :id", u.addParameter("id", data.get("id")));
+        data.forEach(u::addParameter);
         String exp = "UPDATE users u SET u.name = ?, u.lastName1 = ?, u.lastName0 = ? INNER JOIN address a ON u.id = a.user_id WHERE u.id = ?";
         check(exp, u.getSqlAndParameters().sql);
     }
