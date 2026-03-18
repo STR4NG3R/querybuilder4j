@@ -6,6 +6,7 @@
 package io.github.str4ng3r.common;
 
 import io.github.str4ng3r.exceptions.InvalidSqlGenerationException;
+
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -47,7 +48,7 @@ class Tables {
         String[] var2 = tableNames;
         int var3 = tableNames.length;
 
-        for(int var4 = 0; var4 < var3; ++var4) {
+        for (int var4 = 0; var4 < var3; ++var4) {
             String t = var2[var4];
             this.tables.add(new Table(t));
         }
@@ -69,7 +70,7 @@ class Tables {
     }
 
     private void addSeparatorTables(List<Table> list, StringBuilder sql) {
-        sql.append((String)list.stream().map((f) -> {
+        sql.append((String) list.stream().map((f) -> {
             return f.name;
         }).collect(Collectors.joining(", ")));
     }
@@ -88,23 +89,23 @@ class Tables {
                 }
 
                 sql.append("FROM ");
-                sql.append(((Table)this.tables.get(0)).name);
+                sql.append(((Table) this.tables.get(0)).name);
             } else if (this.action == Tables.ACTIONSQL.DELETE) {
                 sql.append("FROM ");
                 this.addSeparatorTables(this.tables, sql);
             } else if (this.action == Tables.ACTIONSQL.UPDATE) {
-                sql.append(((Table)this.tables.get(0)).name);
+                sql.append(((Table) this.tables.get(0)).name);
                 sql.append(" SET ");
                 this.addSeparator(this.fields, sql);
             }
 
-            for(int i = 1; i < this.tables.size(); ++i) {
-                Table table = (Table)this.tables.get(i);
+            for (int i = 1; i < this.tables.size(); ++i) {
+                Table table = (Table) this.tables.get(i);
                 sql.append(table.join).append(table.name).append(" ON ").append(table.on);
                 System.out.println(this.withDeleted);
                 if (!this.withDeleted && table.deletedAtColumn != null) {
                     String name = this.getAliasTable(table);
-                    sql.append(" AND ").append(name).append(".").append(table.deletedAtColumn).append(" <> NULL");
+                    sql.append(" AND ").append(name).append(".").append(table.deletedAtColumn).append(" IS NULL");
                 }
             }
 

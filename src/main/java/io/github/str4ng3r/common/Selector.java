@@ -9,6 +9,7 @@ import io.github.str4ng3r.common.Constants.SqlDialect;
 import io.github.str4ng3r.common.Tables.ACTIONSQL;
 import io.github.str4ng3r.exceptions.InvalidCurrentPageException;
 import io.github.str4ng3r.exceptions.InvalidSqlGenerationException;
+
 import java.util.HashMap;
 import java.util.Objects;
 import java.util.function.Consumer;
@@ -97,10 +98,12 @@ public class Selector extends QueryBuilder<Selector> {
     protected String write() throws InvalidSqlGenerationException {
         StringBuilder sql = this.tables.write();
         if (!this.tables.isWithDeleted()) {
-            Table t = (Table)this.tables.getTables().get(0);
+            Table t = (Table) this.tables.getTables().get(0);
             String name = this.tables.getAliasTable(t);
             if (t.deletedAtColumn != null) {
-                this.andWhere(name + "." + t.deletedAtColumn + " <> NULL");
+                this.andWhere(
+                        (name != null ? name + "." : "")
+                                .concat( t.deletedAtColumn + " IS NULL"));
             }
         }
 

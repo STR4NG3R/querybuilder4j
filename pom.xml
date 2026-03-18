@@ -5,13 +5,26 @@
 
     <modelVersion>4.0.0</modelVersion>
 
+    <repositories>
+        <repository>
+            <id>jitpack.io</id>
+            <url>https://jitpack.io</url>
+        </repository>
+    </repositories>
+
     <groupId>io.github.STR4NG3R</groupId>
-    <artifactId>jorm</artifactId>
+    <artifactId>querybuilder4j</artifactId>
     <version>1.0.0</version>
     <packaging>jar</packaging>
 
-    <name>JOrm</name>
-    <description>Lightweight ORM for Java</description>
+    <properties>
+        <maven.compiler.source>8</maven.compiler.source>
+        <maven.compiler.target>8</maven.compiler.target>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    </properties>
+
+    <name>Querybuilder4j</name>
+    <description>Create dynamic JIT queries</description>
     <url>https://github.com/STR4NG3R/jorm</url>
 
     <licenses>
