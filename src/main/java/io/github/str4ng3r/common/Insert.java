@@ -9,9 +9,7 @@ public class Insert {
 
     StringBuilder columns;
     List<Object> values;
-
     StringBuilder valuesQuestion;
-
     String table;
 
     public Insert() {

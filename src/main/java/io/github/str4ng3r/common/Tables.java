@@ -36,8 +36,8 @@ class Tables {
 
     public Tables(ACTIONSQL action) {
         this.action = action;
-        this.fields = new ArrayList();
-        this.tables = new ArrayList();
+        this.fields = new ArrayList<>();
+        this.tables = new ArrayList<>();
     }
 
     public void addFields(String... fields) {
@@ -45,14 +45,7 @@ class Tables {
     }
 
     public void from(String... tableNames) {
-        String[] var2 = tableNames;
-        int var3 = tableNames.length;
-
-        for (int var4 = 0; var4 < var3; ++var4) {
-            String t = var2[var4];
-            this.tables.add(new Table(t));
-        }
-
+        for (String table: tableNames) this.tables.add(new Table(table));
     }
 
     public void addTable(String tableName, String... fields) {
