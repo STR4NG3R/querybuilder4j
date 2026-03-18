@@ -19,11 +19,12 @@
 package io.github.str4ng3r.sql;
 
 import static org.junit.Assert.assertEquals;
+
+import io.github.str4ng3r.common.*;
 import org.junit.Test;
 
 import io.github.str4ng3r.exceptions.InvalidCurrentPageException;
 import io.github.str4ng3r.exceptions.InvalidSqlGenerationException;
-import io.github.str4ng3r.sql.Join.JOIN;
 
 import java.util.Arrays;
 
@@ -34,17 +35,17 @@ import java.util.Arrays;
 public class SelectorTest {
 
   SqlParameter baseQueryPaginated(Selector selector, String startDate, String gaId, String endDate, Integer page,
-      Integer pageSize) throws InvalidCurrentPageException, InvalidSqlGenerationException {
+                                  Integer pageSize) throws InvalidCurrentPageException, InvalidSqlGenerationException {
     if (endDate != null)
       selector.addSelect("a.startDate")
-          .andWhere("a.endDate = :endDate", selector.addParameter("endDate", endDate));
+          .andWhere("a.endDate = :endDate", (p) -> p.put("endDate", ""));
 
     if (gaId != null)
-      selector.join(JOIN.INNER, "group_account as ga", "ga.id = a.group_account_id")
-          .andWhere("ga.id = :gaId", selector.addParameter("gaId", gaId));
+      selector.join(Join.INNER, "group_account as ga", "ga.id = a.group_account_id")
+          .andWhere("ga.id = :gaId", p -> p.put("gaId", gaId));
 
     if (startDate != null)
-      selector.andWhere("a.startDate= :startDate", selector.addParameter("startDate", startDate));
+      selector.andWhere("a.startDate= :startDate", p -> p.put("startDate", startDate));
 
     if (page != null && pageSize != null) {
       SqlParameter sql = selector.getSqlAndParameters();
@@ -64,8 +65,8 @@ public class SelectorTest {
   public void testDelete() throws InvalidSqlGenerationException {
     SqlParameter sql = new Delete()
         .from("users u")
-        .join(JOIN.INNER, "additional_properties ap", "u.id = ap.user_id")
-        .where("ap.need_to_delete = TRUE")
+        .join(Join.INNER, "additional_properties ap", "u.id = ap.user_id")
+        .where("ap.need_to_delete = TRUE", p -> {})
         .getSqlAndParameters();
     System.out.println(sql);
   }
@@ -74,7 +75,7 @@ public class SelectorTest {
   public void updateTest() throws InvalidSqlGenerationException {
     SqlParameter sql = new Update()
         .from("users u")
-        .join(JOIN.INNER, "additional_properties ap", "u.id = ap.user_id")
+        .join(Join.INNER, "additional_properties ap", "u.id = ap.user_id")
         .where("ap.need_to_delete = TRUE")
         .getSqlAndParameters();
 
@@ -84,17 +85,20 @@ public class SelectorTest {
   Selector baseQuery() {
     Selector s = new Selector();
     return s.select("table_a", "last_name", "first_name", "age")
-        .join(JOIN.LEFT, "table_b as b", "table_b.a = table_a.b")
-        .join(JOIN.INNER, "table_c as c", "table_c.a = table_a.c")
-        .join(JOIN.RIGHT, "table_d as d", "table_d.a = table_c.a")
+        .join(Join.LEFT, "table_b as b", "table_b.a = table_a.b")
+        .join(Join.INNER, "table_c as c", "table_c.a = table_a.c")
+        .join(Join.RIGHT, "table_d as d", "table_d.a = table_c.a")
         .where("table_a.a > :lowerValue AND table_b.b < 20 AND table_c.c > :upperValue",
-            s.addParameter("lowerValue", "12"),
-            s.addParameter("upperValue", "15"))
+            p -> {
+              p.put("lowerValue", "12");
+              p.put("upperValue", "15");
+            }
+          )
         .orderBy("a.a", true)
         .groupBy("a.a")
-        .having("cRows > 1")
+        .having("cRows > 1", p -> {})
         .setDialect(Constants.SqlDialect.Oracle)
-        .andHaving("cRows < 10");
+        .andHaving("cRows < 10", p -> {});
   }
 
   @Test
@@ -136,10 +140,10 @@ public class SelectorTest {
     Selector s = new Selector();
 
     SqlParameter act =      s.select("holidays")
-            .where("created_date < :createdDate", s.addParameter("createdDate", "12/02/2023"))
-            .andWhere("id IN (:ids)", s.addParameter("fkIds", Arrays.asList(1,2,3)))
-            .andWhere("updated_at < :updatedAt", s.addParameter("updatedAt", "12/02/2023"))
-            .andWhere("fk_id IN (:fkIds)", s.addParameter("ids", Arrays.asList("s32dfa", "fa23fd")))
+            .where("created_date < :createdDate", p-> p.put("createdDate", "12/02/2023"))
+            .andWhere("id IN (:ids)", p -> p.put("fkIds", Arrays.asList(1,2,3)))
+            .andWhere("updated_at < :updatedAt", p -> p.put("updatedAt", "12/02/2023"))
+            .andWhere("fk_id IN (:fkIds)", p -> p.put("ids", Arrays.asList("s32dfa", "fa23fd")))
             .getSqlAndParameters();
 
     String exp = "SELECT * FROM holidays WHERE created_date < ? AND id IN (?,?) AND updated_at < ? AND fk_id IN (?,?,?)";

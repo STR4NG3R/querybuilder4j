@@ -30,7 +30,7 @@ import java.util.stream.Collectors;
  *
  * @author Pablo Eduardo Martinez Solis
  */
-final class WhereHaving {
+public class WhereHaving {
 
   protected List<String> listFilterCriteria = new ArrayList<>();
   private String prefix;
@@ -48,13 +48,13 @@ final class WhereHaving {
 
   public void addCriteria(String criteria, Consumer<HashMap<String, Object>> parameters) {
     removeAllCriterias();
-    parameters.accept(this.parameter.parameters);
+    if (parameters != null) parameters.accept(this.parameter.parameters);
     this.listFilterCriteria.add(criteria);
   }
 
   public void andAddCriteria(String criteria, Consumer<HashMap<String, Object>> parameters) {
     this.listFilterCriteria.add(criteria);
-    parameters.accept(this.parameter.parameters);
+    if (parameters != null) parameters.accept(this.parameter.parameters);
   }
 
   public StringBuilder write(StringBuilder sql) {

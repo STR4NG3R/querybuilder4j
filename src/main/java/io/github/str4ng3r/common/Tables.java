@@ -1,53 +1,42 @@
-/*
- * The GPLv3 License (GPLv3)
- *
- * Copyright (c) 2023 Pablo Eduardo Martinez Solis
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program.  If not, see <http://www.gnu.org/licenses/>.
- */
+//
+// Source code recreated from a .class file by IntelliJ IDEA
+// (powered by FernFlower decompiler)
+//
+
 package io.github.str4ng3r.common;
 
+import io.github.str4ng3r.exceptions.InvalidSqlGenerationException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
 
-import io.github.str4ng3r.exceptions.InvalidSqlGenerationException;
-import io.github.str4ng3r.common.Join.JOIN;
-
-/**
- * @author Pablo Eduardo Martinez Solis
- */
 class Tables {
     private List<String> fields;
     private List<Table> tables;
     private ACTIONSQL action;
+    private boolean withDeleted;
 
-    public static enum ACTIONSQL {
-        DELETE("DELETE "), UPDATE("UPDATE "), SELECT("SELECT ");
+    public boolean isWithDeleted() {
+        return this.withDeleted;
+    }
 
-        public String action;
+    public void setWithDeleted(boolean withDeleted) {
+        this.withDeleted = withDeleted;
+    }
 
-        ACTIONSQL(String action) {
-            this.action = action;
-        }
+    public ACTIONSQL getAction() {
+        return this.action;
+    }
+
+    public void setAction(ACTIONSQL action) {
+        this.action = action;
     }
 
     public Tables(ACTIONSQL action) {
         this.action = action;
-        this.fields = new ArrayList<>();
-        this.tables = new ArrayList<>();
+        this.fields = new ArrayList();
+        this.tables = new ArrayList();
     }
 
     public void addFields(String... fields) {
@@ -55,8 +44,14 @@ class Tables {
     }
 
     public void from(String... tableNames) {
-        for (String t : tableNames)
+        String[] var2 = tableNames;
+        int var3 = tableNames.length;
+
+        for(int var4 = 0; var4 < var3; ++var4) {
+            String t = var2[var4];
             this.tables.add(new Table(t));
+        }
+
     }
 
     public void addTable(String tableName, String... fields) {
@@ -65,7 +60,7 @@ class Tables {
         this.addFields(fields);
     }
 
-    public void addJoin(JOIN join, String name, String on) {
+    public void addJoin(Join join, String name, String on) {
         this.tables.add(new Table(join.joinOpt, name, on));
     }
 
@@ -74,63 +69,71 @@ class Tables {
     }
 
     private void addSeparatorTables(List<Table> list, StringBuilder sql) {
-        sql.append(
-                list.stream().map(f -> f.name).collect(Collectors.joining(", ")));
+        sql.append((String)list.stream().map((f) -> {
+            return f.name;
+        }).collect(Collectors.joining(", ")));
     }
 
     public StringBuilder write() throws InvalidSqlGenerationException {
         StringBuilder sql = new StringBuilder();
-        if (getTables().isEmpty())
+        if (this.getTables().isEmpty()) {
             throw new InvalidSqlGenerationException("Tables array is empty, so it could not generate the query");
+        } else {
+            sql.append(this.action.action);
+            if (this.action == Tables.ACTIONSQL.SELECT) {
+                if (this.fields.isEmpty()) {
+                    sql.append("* ");
+                } else {
+                    this.addSeparator(this.fields, sql);
+                }
 
-        sql.append(this.action.action);
+                sql.append("FROM ");
+                sql.append(((Table)this.tables.get(0)).name);
+            } else if (this.action == Tables.ACTIONSQL.DELETE) {
+                sql.append("FROM ");
+                this.addSeparatorTables(this.tables, sql);
+            } else if (this.action == Tables.ACTIONSQL.UPDATE) {
+                sql.append(((Table)this.tables.get(0)).name);
+                sql.append(" SET ");
+                this.addSeparator(this.fields, sql);
+            }
 
-        if (this.action == ACTIONSQL.SELECT) {
-            if (fields.isEmpty()) sql.append("* ");
-            else addSeparator(fields, sql);
-            sql.append("FROM ");
-            sql.append(tables.get(0).name);
-        } else if (this.action == ACTIONSQL.DELETE) {
-            sql.append("FROM ");
-            addSeparatorTables(tables, sql);
-        } else if (this.action == ACTIONSQL.UPDATE) {
-            sql.append(tables.get(0).name);
-            sql.append(" SET ");
-            addSeparator(fields, sql);
+            for(int i = 1; i < this.tables.size(); ++i) {
+                Table table = (Table)this.tables.get(i);
+                sql.append(table.join).append(table.name).append(" ON ").append(table.on);
+                System.out.println(this.withDeleted);
+                if (!this.withDeleted && table.deletedAtColumn != null) {
+                    String name = this.getAliasTable(table);
+                    sql.append(" AND ").append(name).append(".").append(table.deletedAtColumn).append(" <> NULL");
+                }
+            }
+
+            return sql;
         }
-
-        for (int i = 1; i < tables.size(); i++) {
-            Table table = tables.get(i);
-            sql.append(table.join)
-                    .append(table.name)
-                    .append(" ON ")
-                    .append(table.on);
-        }
-
-        return sql;
     }
 
-    private class Table {
-        private String name;
-        private String on;
-        private String join;
-
-        public Table(String name) {
-            this.name = name;
-        }
-
-        public Table(String join, String name, String on) {
-            this(name);
-            this.join = join;
-            this.on = on;
-        }
+    public String getAliasTable(Table t) {
+        String[] words = t.name.split("\\s+");
+        return words.length > 0 ? words[words.length - 1] : "";
     }
 
     public List<String> getFields() {
-        return fields;
+        return this.fields;
     }
 
     public List<Table> getTables() {
-        return tables;
+        return this.tables;
+    }
+
+    public static enum ACTIONSQL {
+        DELETE("DELETE "),
+        UPDATE("UPDATE "),
+        SELECT("SELECT ");
+
+        public String action;
+
+        private ACTIONSQL(String action) {
+            this.action = action;
+        }
     }
 }

@@ -18,44 +18,54 @@
  */
 package io.github.str4ng3r.common;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
+import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import java.util.stream.Collectors;
 
 /**
+ *
  * @author Pablo Eduardo Martinez Solis
  */
-final class Parameter {
-    public static String p = "(:[a-zA-Z0-9]+)";
+public final class Parameter {
+    public static String p = ":([a-zA-Z0-9\\.]+)";
     public static Pattern pattern = Pattern.compile(p);
-    protected HashMap<String, Object> parameters = new HashMap<>();
+    HashMap<String, Object> parameters = new HashMap<>();
 
-    private String sql;
-
-    public Parameter addParameter(String column,  Object value) {
+    public Parameter addParameter(String column, Object value) {
         this.parameters.put(column, value);
         return this;
     }
 
-    public List<String> getIndexesOfOccurrences(String sql) {
+    public List<String> getIndexesOfOcurrences(String sql) {
         List<String> indexes = new ArrayList<>();
         Matcher m = Parameter.pattern.matcher(sql);
-        StringBuffer result = new StringBuffer();
-
-        while (m.find()) {
-            indexes.add(m.group().substring(1));
-            m.appendReplacement(result, "?");
-        }
-        m.appendTail(result);
-        this.sql = result.toString();
+        while (m.find())
+            indexes.add(m.group(1));
         return indexes;
     }
 
-    public String getSql() {
-        return sql;
+    String replaceParamatersOnSql(String sql) {
+        Matcher m = pattern.matcher(sql);
+        StringBuffer sb = new StringBuffer();
+
+        while (m.find()) {
+            String param = m.group(1);
+            System.out.println(param);
+            Object value = parameters.get(param);
+            System.out.println(value);
+            if (value instanceof Collection<?>) {
+                System.out.println(value);
+                int size = ((Collection<?>) value).size();
+                String placeholders =
+                        String.join(",", Collections.nCopies(size, "?"));
+                m.appendReplacement(sb, placeholders);
+            } else {
+                m.appendReplacement(sb, "?");
+            }
+        }
+
+        m.appendTail(sb);
+        return sb.toString();
     }
 
     static String setParameter(String sql, String... parameters) {
@@ -74,7 +84,19 @@ final class Parameter {
     }
 
     List<Object> sortParameters(List<String> indexes) {
-        return indexes.stream().filter(p -> this.parameters.containsKey(p)).map((p) -> this.parameters.get(p)).collect(Collectors.toList());
+        List<Object> sorted = new ArrayList<>();
+
+        for (String key : indexes) {
+
+            Object value = parameters.get(key);
+
+            if (value instanceof Collection<?>) {
+                sorted.addAll((Collection<?>) value);
+            } else {
+                sorted.add(value);
+            }
+        }
+        return sorted;
     }
 
     /**
@@ -83,6 +105,6 @@ final class Parameter {
      * @param parameterToRemove
      */
     void filterParameter(List<String> parameterToRemove) {
-        parameterToRemove.parallelStream().forEach(p -> parameters.remove(p));
+        parameterToRemove.forEach(p -> parameters.remove(p));
     }
 }

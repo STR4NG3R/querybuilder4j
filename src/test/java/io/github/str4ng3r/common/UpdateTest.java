@@ -15,16 +15,14 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-package io.github.str4ng3r.sql;
+package io.github.str4ng3r.common;
 
 import static org.junit.Assert.assertEquals;
 
 import java.util.HashMap;
-
 import org.junit.Test;
 
 import io.github.str4ng3r.exceptions.InvalidSqlGenerationException;
-import io.github.str4ng3r.sql.Join.JOIN;
 
 public class UpdateTest {
 
@@ -32,7 +30,7 @@ public class UpdateTest {
         return new Update()
                 .from("users u")
                 .excludeColumns("a.address")
-                .join(JOIN.INNER, "address a", "u.id = a.user_id");
+                .join(Join.INNER, "address a", "u.id = a.user_id");
     }
 
     HashMap<String, String> testBaseData() {
@@ -48,7 +46,7 @@ public class UpdateTest {
     public void failToUpdateExcludeColumn() throws InvalidSqlGenerationException {
         HashMap<String, String> data = testBaseData();
         Update u = baseUpdateTest();
-        u.andWhere("u.id = :id", u.addParameter("id", data.get("id")));
+        u.andWhere("u.id = :id", p -> p.put("id", data.get("id")));
         data.put("a.address", "A beautiful city");
         data.forEach(u::addParameter);
         u.getSqlAndParameters();
@@ -58,7 +56,7 @@ public class UpdateTest {
     public void update() throws InvalidSqlGenerationException {
         HashMap<String, String> data = testBaseData();
         Update u = baseUpdateTest();
-        u.andWhere("u.id = :id", u.addParameter("id", data.get("id")));
+        u.andWhere("u.id = :id", p -> p.put("id", data.get("id")));
         data.forEach(u::addParameter);
         String exp = "UPDATE users u SET u.name = ?, u.lastName1 = ?, u.lastName0 = ? INNER JOIN address a ON u.id = a.user_id WHERE u.id = ?";
         check(exp, u.getSqlAndParameters().sql);
