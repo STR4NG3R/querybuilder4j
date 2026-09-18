@@ -79,6 +79,17 @@ public class Selector extends QueryBuilder<Selector> {
     }
 
     /**
+     * Real names (alias stripped) of every table referenced by this selector,
+     * base and joined. Useful to resolve per-table metadata (e.g. soft-delete
+     * columns) without parsing the generated SQL.
+     *
+     * @return list of table names in declaration order
+     */
+    public java.util.List<String> getTableNames() {
+        return this.tables.getTableNames();
+    }
+
+    /**
      * Initialize select and put the first table to join
      *
      * @param tableName

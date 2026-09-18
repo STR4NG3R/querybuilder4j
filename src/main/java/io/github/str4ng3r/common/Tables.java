@@ -211,6 +211,17 @@ class Tables {
         return null;
     }
 
+    /**
+     * Real names (alias stripped) of every table referenced by the query,
+     * including base and joined tables. Lets callers resolve per-table metadata
+     * without inspecting the generated SQL.
+     */
+    public java.util.List<String> getTableNames() {
+        java.util.List<String> names = new ArrayList<>();
+        for (Table t : tables) names.add(getTableName(t));
+        return names;
+    }
+
     private class Table {
         private String name;
         private String on;

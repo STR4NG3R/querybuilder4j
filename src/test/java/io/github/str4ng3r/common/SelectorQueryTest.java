@@ -634,6 +634,21 @@ public class SelectorQueryTest {
     }
 
     // =========================================================================
+    @Test
+    public void getTableNamesDevuelveNombresSinAlias() throws InvalidSqlGenerationException {
+        Selector s = new Selector()
+                .select("users u", "u.id")
+                .join(Join.INNER, "addresses a", "a.user_id = u.id")
+                .join(Join.LEFT, "roles r", "r.id = u.rol_id");
+
+        java.util.List<String> names = s.getTableNames();
+        assertEquals(3, names.size());
+        assertEquals("users", names.get(0));
+        assertEquals("addresses", names.get(1));
+        assertEquals("roles", names.get(2));
+    }
+
+    // =========================================================================
     // Utilidad
     // =========================================================================
 
