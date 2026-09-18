@@ -1,3 +1,21 @@
+/*
+ * The GPLv3 License (GPLv3)
+ *
+ * Copyright (c) 2023 Pablo Eduardo Martinez Solis
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
 package io.github.str4ng3r.common;
 
 import io.github.str4ng3r.exceptions.InvalidCurrentPageException;
@@ -34,18 +52,28 @@ public class Pagination {
     if (currentPage < 1)
       throw new InvalidCurrentPageException("The page must be greater than 0");
 
-    int lower = pageSize * (currentPage - 1);
-    int upper = 0;
+    int offset = pageSize * (currentPage - 1);
+    int limit = pageSize;
 
-    if (constants.getSqlDialect().equals(SqlDialect.Oracle.sqlDialect))
-      upper = pageSize;
-    else
-      upper = lower + pageSize;
+    // Cada dialecto ordena sus tokens :low/:upper de forma distinta:
+    //   Oracle:   OFFSET :low ROWS FETCH NEXT :upper ROWS ONLY  -> (offset, limit)
+    //   MySQL:    LIMIT :low, :upper                            -> (offset, limit)
+    //   Postgres: LIMIT :low OFFSET :upper                      -> (limit, offset)
+    //   SQL:      LIMIT :low OFFSET :upper                      -> (limit, offset)
+    String first, second;
+    String dialect = constants.getSqlDialect();
+    if (dialect.equals(SqlDialect.Postgres.sqlDialect) || dialect.equals(SqlDialect.Sql.sqlDialect)) {
+      first = Integer.toString(limit);
+      second = Integer.toString(offset);
+    } else { // Oracle y MySQL
+      first = Integer.toString(offset);
+      second = Integer.toString(limit);
+    }
 
     totalPages = (int) Math.ceil((double) count / pageSize);
-    sqlP.p = this;
-    sqlP.sql += constants.replaceValues(constants.getAction(Constants.Actions.PAGINATION),
-        Integer.toString(upper), Integer.toString(lower));
+    sqlP.setPagination(this);
+    sqlP.setSql(sqlP.getSql()
+        + constants.replaceValues(constants.getAction(Constants.Actions.PAGINATION), first, second));
   }
 
   public Integer getPageSize() {
