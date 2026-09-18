@@ -36,7 +36,8 @@ public class Selector extends QueryBuilder<Selector> {
     private OrderGroupBy groupBy;
     private WhereHaving having;
     private boolean withDeleted = true;
-    private String deletedAtColumn;
+    // table name -> soft-delete column. Only listed tables get the IS NULL filter.
+    private java.util.Map<String, String> softDeleteColumns;
 
     public Selector() {
         super();
@@ -52,8 +53,9 @@ public class Selector extends QueryBuilder<Selector> {
     }
 
     /**
-     * When false and a deletedAtColumn is set, a "deletedAtColumn IS NULL" filter
-     * is appended so soft-deleted rows are excluded. Defaults to true (include all).
+     * When false, tables listed via setSoftDeleteColumns get a
+     * "&lt;column&gt; IS NULL" filter so soft-deleted rows are excluded.
+     * Defaults to true (include all).
      *
      * @param withDeleted whether soft-deleted rows should be included
      * @return same object as pipe
@@ -64,13 +66,15 @@ public class Selector extends QueryBuilder<Selector> {
     }
 
     /**
-     * Sets the column used to filter out soft-deleted rows when withDeleted is false.
+     * Registers, per table name, the soft-delete column to filter on when
+     * withDeleted is false. Tables not present in the map are never filtered,
+     * so joins to tables without a soft-delete column stay valid.
      *
-     * @param deletedAtColumn the soft-delete column (may be qualified, e.g. "u.deletedAt")
+     * @param softDeleteColumns map of real table name to its soft-delete column
      * @return same object as pipe
      */
-    public Selector setDeletedAtColumn(String deletedAtColumn) {
-        this.deletedAtColumn = deletedAtColumn;
+    public Selector setSoftDeleteColumns(java.util.Map<String, String> softDeleteColumns) {
+        this.softDeleteColumns = softDeleteColumns;
         return this;
     }
 
@@ -176,17 +180,21 @@ public class Selector extends QueryBuilder<Selector> {
 
     @Override
     protected String write() throws InvalidSqlGenerationException {
-        // Propagate soft-delete config to Tables so every JOIN gets the
-        // "deletedAt IS NULL" condition inside its ON clause.
+        // Propagate soft-delete config to Tables so each JOIN to a soft-deletable
+        // table gets the "IS NULL" condition inside its ON clause.
         this.tables.setWithDeleted(this.withDeleted);
-        this.tables.setDeletedAtColumn(this.deletedAtColumn);
+        this.tables.setSoftDeleteColumns(this.softDeleteColumns);
 
-        // Base table: exclude soft-deleted rows in the WHERE. Correct SQL is
-        // "IS NULL" (the previous "<> NULL" never matched). No parameter binding.
-        if (!this.withDeleted && this.deletedAtColumn != null) {
-            String baseAlias = this.tables.baseTableAlias();
-            String qualified = baseAlias == null ? this.deletedAtColumn : baseAlias + "." + this.deletedAtColumn;
-            this.andWhere(qualified + " IS NULL", p -> {});
+        // Base table: exclude soft-deleted rows in the WHERE, only if that table
+        // is registered with a soft-delete column. Correct predicate is "IS NULL".
+        if (!this.withDeleted && this.softDeleteColumns != null) {
+            String baseTable = this.tables.baseTableName();
+            String col = baseTable == null ? null : this.softDeleteColumns.get(baseTable);
+            if (col != null) {
+                String baseAlias = this.tables.baseTableAlias();
+                String qualified = baseAlias == null ? col : baseAlias + "." + col;
+                this.andWhere(qualified + " IS NULL", p -> {});
+            }
         }
 
         StringBuilder sql = this.tables.write();

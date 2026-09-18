@@ -21,6 +21,7 @@ package io.github.str4ng3r.common;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 
 import io.github.str4ng3r.exceptions.InvalidSqlGenerationException;
 
@@ -32,7 +33,10 @@ class Tables {
     private List<Table> tables;
     private ACTIONSQL action;
     private boolean withDeleted = true;
-    private String deletedAtColumn;
+    // Maps a real table name to its soft-delete column. Only tables present here
+    // receive the "deletedAt IS NULL" filter; tables without a soft-delete column
+    // (e.g. join tables) are left untouched.
+    private Map<String, String> softDeleteColumns;
 
     public static enum ACTIONSQL {
         DELETE("DELETE "), UPDATE("UPDATE "), SELECT("SELECT ");
@@ -56,12 +60,8 @@ class Tables {
         return withDeleted;
     }
 
-    public void setDeletedAtColumn(String deletedAtColumn) {
-        this.deletedAtColumn = deletedAtColumn;
-    }
-
-    public String getDeletedAtColumn() {
-        return deletedAtColumn;
+    public void setSoftDeleteColumns(Map<String, String> softDeleteColumns) {
+        this.softDeleteColumns = softDeleteColumns;
     }
 
     public Tables(ACTIONSQL action) {
@@ -145,18 +145,38 @@ class Tables {
             // CROSS JOIN (o cualquier join sin condición) no debe generar 'ON' colgante
             if (table.on != null && !table.on.trim().isEmpty()) {
                 sql.append(" ON ").append(table.on);
-                // Excluir filas soft-deleted de la tabla joineada: se agrega la
-                // condición dentro del ON para que el filtrado no convierta un
-                // LEFT/RIGHT JOIN en un INNER (como pasaría si fuera al WHERE).
-                if (!withDeleted && deletedAtColumn != null) {
+                // Excluir filas soft-deleted SOLO si esta tabla tiene columna de
+                // soft-delete registrada. El filtro va dentro del ON para no
+                // convertir un LEFT/RIGHT JOIN en un INNER.
+                String col = softDeleteColumnFor(table);
+                if (col != null) {
                     sql.append(" AND ")
                        .append(getAliasTable(table))
-                       .append(".").append(deletedAtColumn).append(" IS NULL");
+                       .append(".").append(col).append(" IS NULL");
                 }
             }
         }
 
         return sql;
+    }
+
+    /**
+     * Returns the soft-delete column for a table if filtering is enabled and the
+     * table's real name is registered as having one; otherwise null.
+     */
+    private String softDeleteColumnFor(Table t) {
+        if (withDeleted || softDeleteColumns == null || softDeleteColumns.isEmpty())
+            return null;
+        return softDeleteColumns.get(getTableName(t));
+    }
+
+    /**
+     * Returns the real table name of an expression, dropping any alias:
+     * "userAddress as ua" -> "userAddress", "users u" -> "users", "users" -> "users".
+     */
+    static String getTableName(Table t) {
+        String[] words = t.name.trim().split("\\s+");
+        return words.length > 0 ? words[0] : t.name;
     }
 
     /**
@@ -174,6 +194,18 @@ class Tables {
         for (Table t : tables) {
             if (t.join == null) {
                 return getAliasTable(t);
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Real table name of the first base (non-join) table, or null if none exists.
+     */
+    public String baseTableName() {
+        for (Table t : tables) {
+            if (t.join == null) {
+                return getTableName(t);
             }
         }
         return null;

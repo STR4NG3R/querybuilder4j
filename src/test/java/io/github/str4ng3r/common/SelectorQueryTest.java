@@ -534,14 +534,20 @@ public class SelectorQueryTest {
     }
 
     // =========================================================================
-    // Soft delete (withDeleted / deletedAt filter)
+    // Soft delete (withDeleted / soft-delete columns per table)
     // =========================================================================
+
+    private static java.util.Map<String, String> softMap(String... tableCol) {
+        java.util.Map<String, String> m = new java.util.HashMap<>();
+        for (int i = 0; i < tableCol.length; i += 2) m.put(tableCol[i], tableCol[i + 1]);
+        return m;
+    }
 
     @Test
     public void withDeletedFalseAgregaFiltroIsNull() throws InvalidSqlGenerationException {
         SqlParameter r = new Selector()
                 .select("usuarios")
-                .setDeletedAtColumn("deletedAt")
+                .setSoftDeleteColumns(softMap("usuarios", "deletedAt"))
                 .setWithDeleted(false)
                 .getSqlAndParameters();
 
@@ -553,7 +559,7 @@ public class SelectorQueryTest {
     public void withDeletedFalseCombinaConWhereExistenteConAnd() throws InvalidSqlGenerationException {
         SqlParameter r = new Selector()
                 .select("usuarios")
-                .setDeletedAtColumn("deletedAt")
+                .setSoftDeleteColumns(softMap("usuarios", "deletedAt"))
                 .setWithDeleted(false)
                 .where("rol = :rol", p -> p.put("rol", "admin"))
                 .getSqlAndParameters();
@@ -567,7 +573,7 @@ public class SelectorQueryTest {
     public void withDeletedFalseUsaAliasDeTablaBase() throws InvalidSqlGenerationException {
         SqlParameter r = new Selector()
                 .select("usuarios u", "u.id", "u.name")
-                .setDeletedAtColumn("deletedAt")
+                .setSoftDeleteColumns(softMap("usuarios", "deletedAt"))
                 .setWithDeleted(false)
                 .getSqlAndParameters();
 
@@ -575,19 +581,20 @@ public class SelectorQueryTest {
     }
 
     @Test
-    public void withDeletedFalseAplicaFiltroEnCadaJoinOn() throws InvalidSqlGenerationException {
-        // El filtro se agrega dentro del ON de cada JOIN (para no convertir un
-        // LEFT JOIN en INNER) y también en el WHERE para la tabla base.
+    public void withDeletedFalseAplicaFiltroSoloEnTablasConSoftDelete() throws InvalidSqlGenerationException {
+        // usuarios y roles tienen soft-delete; addresses NO. El filtro se agrega
+        // dentro del ON solo para las tablas registradas, evitando SQL inválido
+        // sobre columnas inexistentes.
         SqlParameter r = new Selector()
                 .select("usuarios u", "u.id")
                 .join(Join.INNER, "addresses a", "a.user_id = u.id")
                 .join(Join.LEFT, "roles r", "r.id = u.rol_id")
-                .setDeletedAtColumn("deletedAt")
+                .setSoftDeleteColumns(softMap("usuarios", "deletedAt", "roles", "deletedAt"))
                 .setWithDeleted(false)
                 .getSqlAndParameters();
 
         check("SELECT u.id FROM usuarios u "
-                + "INNER JOIN addresses a ON a.user_id = u.id AND a.deletedAt IS NULL "
+                + "INNER JOIN addresses a ON a.user_id = u.id "
                 + "LEFT JOIN roles r ON r.id = u.rol_id AND r.deletedAt IS NULL "
                 + "WHERE u.deletedAt IS NULL", r.getSql());
     }
@@ -598,7 +605,7 @@ public class SelectorQueryTest {
         SqlParameter r = new Selector()
                 .select("colores c", "c.id")
                 .crossJoin("tallas t")
-                .setDeletedAtColumn("deletedAt")
+                .setSoftDeleteColumns(softMap("colores", "deletedAt"))
                 .setWithDeleted(false)
                 .getSqlAndParameters();
 
@@ -609,7 +616,7 @@ public class SelectorQueryTest {
     public void withDeletedTruePorDefectoNoAgregaFiltro() throws InvalidSqlGenerationException {
         SqlParameter r = new Selector()
                 .select("usuarios")
-                .setDeletedAtColumn("deletedAt")
+                .setSoftDeleteColumns(softMap("usuarios", "deletedAt"))
                 .getSqlAndParameters();
 
         check("SELECT * FROM usuarios", r.getSql());
@@ -617,7 +624,7 @@ public class SelectorQueryTest {
 
     @Test
     public void withDeletedFalseSinColumnaNoAgregaFiltro() throws InvalidSqlGenerationException {
-        // Si no se define la columna deletedAt, no hay filtro que agregar.
+        // Si la tabla base no está registrada con columna, no hay filtro que agregar.
         SqlParameter r = new Selector()
                 .select("usuarios")
                 .setWithDeleted(false)
