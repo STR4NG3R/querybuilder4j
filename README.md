@@ -1,6 +1,8 @@
 SQL Query Builder
 =================
 
+[![](https://jitpack.io/v/STR4NG3R/querybuilder4j.svg)](https://jitpack.io/#STR4NG3R/querybuilder4j)
+
 Stop losing time writing repeated SQL queries and let Java SQL Query Builder do the job for you. It's simple, fast and lightweight. **You don't need a database connection to build the query.**
 This project can be used in any kind of Java project since it has no runtime dependencies. It generates parameterized SQL (using `?` placeholders) plus the ordered list of parameters, ready to feed into a `PreparedStatement` or an ORM.
 
@@ -70,7 +72,7 @@ Step 2. Add the dependency
 <dependency>
     <groupId>com.github.STR4NG3R</groupId>
     <artifactId>querybuilder4j</artifactId>
-    <version>1.0.2</version>
+    <version>1.1.1</version>
 </dependency>
 ```
 
