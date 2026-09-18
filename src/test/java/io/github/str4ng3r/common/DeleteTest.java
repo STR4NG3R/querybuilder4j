@@ -205,6 +205,16 @@ public class DeleteTest {
     }
 
     // -------------------------------------------------------------------------
+    // getBaseTableName
+    // -------------------------------------------------------------------------
+
+    @Test
+    public void getBaseTableNameDevuelveNombreSinAlias() {
+        assertEquals("usuarios", new Delete().from("usuarios u").getBaseTableName());
+        assertEquals("usuarios", new Delete().from("usuarios").getBaseTableName());
+    }
+
+    // -------------------------------------------------------------------------
     // Utilidad
     // -------------------------------------------------------------------------
 

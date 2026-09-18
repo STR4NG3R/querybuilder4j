@@ -114,7 +114,7 @@
   <modelVersion>4.0.0</modelVersion>
   <groupId>io.github.str4ng3r</groupId>
   <artifactId>QueryBuilder</artifactId>
-  <version>1.2.1</version>
+  <version>1.2.2</version>
   <name>${project.groupId}:${project.artifactId}</name>
   <description>Stop to lost time writing repeated SQL queries and let Java SQL Query Builder do the job for you. It's simple, fast and lightweight. You don't need to make a connection with a database. This project could be implement in any kind of Java Project since there's any dependency.</description>
   <url>https://github.com/STR4NG3R/querybuilder4j</url>

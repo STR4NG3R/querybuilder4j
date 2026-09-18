@@ -57,6 +57,14 @@ public class Delete extends QueryBuilder<Delete> {
   }
 
   /**
+   * Returns the real name (alias stripped) of the delete's base table, so
+   * callers can resolve per-entity metadata without parsing the SQL string.
+   */
+  public String getBaseTableName() {
+    return this.tables.baseTableName();
+  }
+
+  /**
    * Sets the column used for soft deletes. When present and hardDelete is false,
    * the DELETE is rewritten as an UPDATE that stamps this column with the current time.
    */
