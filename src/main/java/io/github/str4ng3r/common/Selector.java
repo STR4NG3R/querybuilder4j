@@ -35,6 +35,8 @@ public class Selector extends QueryBuilder<Selector> {
     private OrderGroupBy orderBy;
     private OrderGroupBy groupBy;
     private WhereHaving having;
+    private boolean withDeleted = true;
+    private String deletedAtColumn;
 
     public Selector() {
         super();
@@ -47,6 +49,29 @@ public class Selector extends QueryBuilder<Selector> {
         this.orderBy = null;
         this.groupBy = null;
         this.having = null;
+    }
+
+    /**
+     * When false and a deletedAtColumn is set, a "deletedAtColumn IS NULL" filter
+     * is appended so soft-deleted rows are excluded. Defaults to true (include all).
+     *
+     * @param withDeleted whether soft-deleted rows should be included
+     * @return same object as pipe
+     */
+    public Selector setWithDeleted(boolean withDeleted) {
+        this.withDeleted = withDeleted;
+        return this;
+    }
+
+    /**
+     * Sets the column used to filter out soft-deleted rows when withDeleted is false.
+     *
+     * @param deletedAtColumn the soft-delete column (may be qualified, e.g. "u.deletedAt")
+     * @return same object as pipe
+     */
+    public Selector setDeletedAtColumn(String deletedAtColumn) {
+        this.deletedAtColumn = deletedAtColumn;
+        return this;
     }
 
     /**
@@ -151,6 +176,19 @@ public class Selector extends QueryBuilder<Selector> {
 
     @Override
     protected String write() throws InvalidSqlGenerationException {
+        // Propagate soft-delete config to Tables so every JOIN gets the
+        // "deletedAt IS NULL" condition inside its ON clause.
+        this.tables.setWithDeleted(this.withDeleted);
+        this.tables.setDeletedAtColumn(this.deletedAtColumn);
+
+        // Base table: exclude soft-deleted rows in the WHERE. Correct SQL is
+        // "IS NULL" (the previous "<> NULL" never matched). No parameter binding.
+        if (!this.withDeleted && this.deletedAtColumn != null) {
+            String baseAlias = this.tables.baseTableAlias();
+            String qualified = baseAlias == null ? this.deletedAtColumn : baseAlias + "." + this.deletedAtColumn;
+            this.andWhere(qualified + " IS NULL", p -> {});
+        }
+
         StringBuilder sql = this.tables.write();
 
         this.where.write(sql);

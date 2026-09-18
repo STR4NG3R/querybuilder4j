@@ -534,6 +534,99 @@ public class SelectorQueryTest {
     }
 
     // =========================================================================
+    // Soft delete (withDeleted / deletedAt filter)
+    // =========================================================================
+
+    @Test
+    public void withDeletedFalseAgregaFiltroIsNull() throws InvalidSqlGenerationException {
+        SqlParameter r = new Selector()
+                .select("usuarios")
+                .setDeletedAtColumn("deletedAt")
+                .setWithDeleted(false)
+                .getSqlAndParameters();
+
+        check("SELECT * FROM usuarios WHERE usuarios.deletedAt IS NULL", r.getSql());
+        assertTrue(r.getListParameters().isEmpty());
+    }
+
+    @Test
+    public void withDeletedFalseCombinaConWhereExistenteConAnd() throws InvalidSqlGenerationException {
+        SqlParameter r = new Selector()
+                .select("usuarios")
+                .setDeletedAtColumn("deletedAt")
+                .setWithDeleted(false)
+                .where("rol = :rol", p -> p.put("rol", "admin"))
+                .getSqlAndParameters();
+
+        check("SELECT * FROM usuarios WHERE rol = ? AND usuarios.deletedAt IS NULL", r.getSql());
+        assertEquals(1, r.getListParameters().size());
+        assertEquals("admin", r.getListParameters().get(0));
+    }
+
+    @Test
+    public void withDeletedFalseUsaAliasDeTablaBase() throws InvalidSqlGenerationException {
+        SqlParameter r = new Selector()
+                .select("usuarios u", "u.id", "u.name")
+                .setDeletedAtColumn("deletedAt")
+                .setWithDeleted(false)
+                .getSqlAndParameters();
+
+        check("SELECT u.id, u.name FROM usuarios u WHERE u.deletedAt IS NULL", r.getSql());
+    }
+
+    @Test
+    public void withDeletedFalseAplicaFiltroEnCadaJoinOn() throws InvalidSqlGenerationException {
+        // El filtro se agrega dentro del ON de cada JOIN (para no convertir un
+        // LEFT JOIN en INNER) y también en el WHERE para la tabla base.
+        SqlParameter r = new Selector()
+                .select("usuarios u", "u.id")
+                .join(Join.INNER, "addresses a", "a.user_id = u.id")
+                .join(Join.LEFT, "roles r", "r.id = u.rol_id")
+                .setDeletedAtColumn("deletedAt")
+                .setWithDeleted(false)
+                .getSqlAndParameters();
+
+        check("SELECT u.id FROM usuarios u "
+                + "INNER JOIN addresses a ON a.user_id = u.id AND a.deletedAt IS NULL "
+                + "LEFT JOIN roles r ON r.id = u.rol_id AND r.deletedAt IS NULL "
+                + "WHERE u.deletedAt IS NULL", r.getSql());
+    }
+
+    @Test
+    public void withDeletedFalseNoAfectaCrossJoin() throws InvalidSqlGenerationException {
+        // CROSS JOIN no tiene ON, así que no recibe el filtro.
+        SqlParameter r = new Selector()
+                .select("colores c", "c.id")
+                .crossJoin("tallas t")
+                .setDeletedAtColumn("deletedAt")
+                .setWithDeleted(false)
+                .getSqlAndParameters();
+
+        check("SELECT c.id FROM colores c CROSS JOIN tallas t WHERE c.deletedAt IS NULL", r.getSql());
+    }
+
+    @Test
+    public void withDeletedTruePorDefectoNoAgregaFiltro() throws InvalidSqlGenerationException {
+        SqlParameter r = new Selector()
+                .select("usuarios")
+                .setDeletedAtColumn("deletedAt")
+                .getSqlAndParameters();
+
+        check("SELECT * FROM usuarios", r.getSql());
+    }
+
+    @Test
+    public void withDeletedFalseSinColumnaNoAgregaFiltro() throws InvalidSqlGenerationException {
+        // Si no se define la columna deletedAt, no hay filtro que agregar.
+        SqlParameter r = new Selector()
+                .select("usuarios")
+                .setWithDeleted(false)
+                .getSqlAndParameters();
+
+        check("SELECT * FROM usuarios", r.getSql());
+    }
+
+    // =========================================================================
     // Utilidad
     // =========================================================================
 

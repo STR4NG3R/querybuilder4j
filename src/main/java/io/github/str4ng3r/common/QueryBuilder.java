@@ -72,6 +72,10 @@ abstract class QueryBuilder<T> {
 
         if (t instanceof Update) {
             orderParameters.addAll(0,  new ArrayList<>(columnValue.values()));
+        } else if (t instanceof Delete && ((Delete) t).isSoftDelete()) {
+            // Soft delete is rewritten as UPDATE ... SET deletedAt = ?; that value
+            // is a positional placeholder that must come before the WHERE params.
+            orderParameters.addAll(0, new ArrayList<>(columnValue.values()));
         }
         return new SqlParameter(parameter.getSql(), orderParameters);
     }

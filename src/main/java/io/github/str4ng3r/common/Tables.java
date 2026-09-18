@@ -31,6 +31,8 @@ class Tables {
     private List<String> fields;
     private List<Table> tables;
     private ACTIONSQL action;
+    private boolean withDeleted = true;
+    private String deletedAtColumn;
 
     public static enum ACTIONSQL {
         DELETE("DELETE "), UPDATE("UPDATE "), SELECT("SELECT ");
@@ -40,6 +42,26 @@ class Tables {
         ACTIONSQL(String action) {
             this.action = action;
         }
+    }
+
+    public void setAction(ACTIONSQL action) {
+        this.action = action;
+    }
+
+    public void setWithDeleted(boolean withDeleted) {
+        this.withDeleted = withDeleted;
+    }
+
+    public boolean isWithDeleted() {
+        return withDeleted;
+    }
+
+    public void setDeletedAtColumn(String deletedAtColumn) {
+        this.deletedAtColumn = deletedAtColumn;
+    }
+
+    public String getDeletedAtColumn() {
+        return deletedAtColumn;
     }
 
     public Tables(ACTIONSQL action) {
@@ -121,11 +143,40 @@ class Tables {
                 continue; // ya incluida en el FROM
             sql.append(table.join).append(table.name);
             // CROSS JOIN (o cualquier join sin condición) no debe generar 'ON' colgante
-            if (table.on != null && !table.on.trim().isEmpty())
+            if (table.on != null && !table.on.trim().isEmpty()) {
                 sql.append(" ON ").append(table.on);
+                // Excluir filas soft-deleted de la tabla joineada: se agrega la
+                // condición dentro del ON para que el filtrado no convierta un
+                // LEFT/RIGHT JOIN en un INNER (como pasaría si fuera al WHERE).
+                if (!withDeleted && deletedAtColumn != null) {
+                    sql.append(" AND ")
+                       .append(getAliasTable(table))
+                       .append(".").append(deletedAtColumn).append(" IS NULL");
+                }
+            }
         }
 
         return sql;
+    }
+
+    /**
+     * Returns the alias of a table expression ("users u" -> "u", "users" -> "users").
+     */
+    static String getAliasTable(Table t) {
+        String[] words = t.name.trim().split("\\s+");
+        return words.length > 0 ? words[words.length - 1] : t.name;
+    }
+
+    /**
+     * Alias of the first base (non-join) table, or null if none exists.
+     */
+    public String baseTableAlias() {
+        for (Table t : tables) {
+            if (t.join == null) {
+                return getAliasTable(t);
+            }
+        }
+        return null;
     }
 
     private class Table {

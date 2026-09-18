@@ -125,6 +125,66 @@ public class DeleteTest {
     }
 
     // -------------------------------------------------------------------------
+    // Soft delete
+    // -------------------------------------------------------------------------
+
+    /**
+     * Con hardDelete=false y una columna deletedAt, el DELETE se reescribe como
+     * UPDATE ... SET deletedAt = ? WHERE ..., con el timestamp bindeado como
+     * primer parámetro (antes de los del WHERE).
+     */
+    @Test
+    public void softDeleteGeneraUpdate() throws InvalidSqlGenerationException {
+        SqlParameter resultado = new Delete()
+                .from("usuarios")
+                .setDeletedAtColumn("deletedAt")
+                .setHardDelete(false)
+                .where("id = :id", p -> p.put("id", 7))
+                .getSqlAndParameters();
+
+        // Nota: al reescribirse como UPDATE, Tables.write() agrega un espacio al
+        // final del SET antes del WHERE (mismo comportamiento que Update).
+        verificar("UPDATE usuarios SET deletedAt = ?  WHERE id = ?", resultado.getSql());
+        assertEquals(2, resultado.getListParameters().size());
+        // El primer parámetro es el timestamp del soft delete (no concatenado)
+        assertTrue("El primer parámetro debe ser un Timestamp",
+                resultado.getListParameters().get(0) instanceof java.sql.Timestamp);
+        assertEquals(7, resultado.getListParameters().get(1));
+    }
+
+    /**
+     * Con hardDelete=true (default) se genera un DELETE físico aunque exista
+     * columna deletedAt.
+     */
+    @Test
+    public void hardDeleteIgnoraDeletedAtColumn() throws InvalidSqlGenerationException {
+        SqlParameter resultado = new Delete()
+                .from("usuarios")
+                .setDeletedAtColumn("deletedAt")
+                .setHardDelete(true)
+                .where("id = :id", p -> p.put("id", 7))
+                .getSqlAndParameters();
+
+        verificar("DELETE FROM usuarios WHERE id = ?", resultado.getSql());
+        assertEquals(1, resultado.getListParameters().size());
+        assertEquals(7, resultado.getListParameters().get(0));
+    }
+
+    /**
+     * El soft delete solo puede operar sobre una única tabla.
+     */
+    @Test(expected = InvalidSqlGenerationException.class)
+    public void softDeleteSobreVariasTablasLanzaExcepcion() throws InvalidSqlGenerationException {
+        new Delete()
+                .from("usuarios u")
+                .join(Join.INNER, "roles r", "r.id = u.rol_id")
+                .setDeletedAtColumn("deletedAt")
+                .setHardDelete(false)
+                .where("u.id = :id", p -> p.put("id", 1))
+                .getSqlAndParameters();
+    }
+
+    // -------------------------------------------------------------------------
     // Casos de error esperados
     // -------------------------------------------------------------------------
 
