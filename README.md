@@ -45,6 +45,7 @@ This project can be used in any kind of Java project since it has no runtime dep
     * [8.2. Pagination with `Template<T>`](#block8.2)
     * [8.3. Spring `JdbcTemplate`](#block8.3)
     * [8.4. A reusable dynamic-filter repository](#block8.4)
+    * [8.5. AWS Lambda handler](#block8.5)
 * [9. API reference & validation](#block9)
 * [10. Authors](#block10)
 * [11. License](#block11)
@@ -467,6 +468,104 @@ public class UserRepository {
 ```
 The `:name` token is never string-concatenated into the SQL; only the `%ana%`
 value travels as a bound parameter, which keeps the query safe from SQL injection.
+
+<a name="block8.5"></a>
+### 8.5. AWS Lambda handler [↑](#index_block)
+Because the builder has **zero runtime dependencies** and needs no database
+connection to produce the SQL, it is a natural fit for AWS Lambda: the cold-start
+cost stays tiny and you only open a JDBC connection when you actually run the
+query. The example below is a `RequestHandler` that reads pagination and filter
+parameters from an API Gateway event, builds a parameterized query and returns a
+paginated JSON response.
+```java
+import com.amazonaws.services.lambda.runtime.Context;
+import com.amazonaws.services.lambda.runtime.RequestHandler;
+import com.amazonaws.services.lambda.runtime.events.APIGatewayProxyRequestEvent;
+import com.amazonaws.services.lambda.runtime.events.APIGatewayProxyResponseEvent;
+import io.github.str4ng3r.common.*;
+
+import java.sql.*;
+import java.util.*;
+
+public class ListUsersHandler
+        implements RequestHandler<APIGatewayProxyRequestEvent, APIGatewayProxyResponseEvent> {
+
+    // JDBC URL / credentials come from Lambda environment variables
+    private static final String JDBC_URL  = System.getenv("JDBC_URL");
+    private static final String JDBC_USER = System.getenv("JDBC_USER");
+    private static final String JDBC_PASS = System.getenv("JDBC_PASS");
+
+    @Override
+    public APIGatewayProxyResponseEvent handleRequest(APIGatewayProxyRequestEvent event, Context context) {
+        Map<String, String> qs = event.getQueryStringParameters() != null
+                ? event.getQueryStringParameters()
+                : Collections.emptyMap();
+
+        int page     = qs.containsKey("page")     ? Integer.parseInt(qs.get("page"))     : 1;
+        int pageSize = qs.containsKey("pageSize")  ? Integer.parseInt(qs.get("pageSize")) : 10;
+        String name  = qs.get("name");   // optional dynamic filter
+
+        // 1) Build the query (no DB connection needed here)
+        Selector s = new Selector()
+                .select("users u", "u.id", "u.name", "u.email")
+                .setDialect(Constants.SqlDialect.Postgres);
+        if (name != null)
+            s.andWhere("u.name LIKE :name", p -> p.put("name", "%" + name + "%"));
+        s.orderBy("u.name", false);
+
+        SqlParameter query = s.getSqlAndParameters();
+
+        try (Connection connection = DriverManager.getConnection(JDBC_URL, JDBC_USER, JDBC_PASS)) {
+            // 2) Total rows for the same filters
+            int total;
+            try (PreparedStatement ps = connection.prepareStatement(s.getCount(query.getSql()))) {
+                bind(ps, query.getListParameters());
+                try (ResultSet rs = ps.executeQuery()) {
+                    rs.next();
+                    total = rs.getInt(1);
+                }
+            }
+
+            // 3) Add dialect-aware LIMIT/OFFSET and fetch the page
+            s.setPagination(query, new Pagination(pageSize, total, page));
+            List<Map<String, Object>> users = new ArrayList<>();
+            try (PreparedStatement ps = connection.prepareStatement(query.getSql())) {
+                bind(ps, query.getListParameters());
+                try (ResultSet rs = ps.executeQuery()) {
+                    while (rs.next()) {
+                        Map<String, Object> row = new LinkedHashMap<>();
+                        row.put("id",    rs.getInt("id"));
+                        row.put("name",  rs.getString("name"));
+                        row.put("email", rs.getString("email"));
+                        users.add(row);
+                    }
+                }
+            }
+
+            String body = String.format(
+                    "{\"page\":%d,\"pageSize\":%d,\"total\":%d,\"count\":%d}",
+                    page, pageSize, total, users.size());
+            return new APIGatewayProxyResponseEvent()
+                    .withStatusCode(200)
+                    .withHeaders(Collections.singletonMap("Content-Type", "application/json"))
+                    .withBody(body);
+        } catch (Exception e) {
+            context.getLogger().log("Query failed: " + e.getMessage());
+            return new APIGatewayProxyResponseEvent()
+                    .withStatusCode(500)
+                    .withBody("{\"error\":\"internal error\"}");
+        }
+    }
+
+    private static void bind(PreparedStatement ps, List<Object> params) throws SQLException {
+        for (int i = 0; i < params.size(); i++)
+            ps.setObject(i + 1, params.get(i));   // JDBC indexes are 1-based
+    }
+}
+```
+The user-supplied `name` never gets concatenated into the SQL — it travels as a
+bound `?` parameter, so the handler stays safe from SQL injection even with raw
+query-string input.
 
 <a name="block9"></a>
 ## 9. API reference & validation [↑](#index_block)

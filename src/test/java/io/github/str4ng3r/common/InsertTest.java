@@ -7,14 +7,7 @@ import org.junit.Test;
 
 import io.github.str4ng3r.exceptions.InvalidSqlGenerationException;
 
-/**
- * Tests para la clase Insert.
- *
- * BUGS DOCUMENTADOS:
- *   BUG-1 corregido: El constructor Insert(String table) ahora asigna
- *           this.table = table, de modo que el SQL generado usa el nombre
- *           real de la tabla en vez de "null".
- */
+
 public class InsertTest {
 
     // -------------------------------------------------------------------------
@@ -79,11 +72,6 @@ public class InsertTest {
         long conteo = sql.chars().filter(c -> c == '?').count();
         assertEquals("Debe haber exactamente 2 placeholders '?'", 2, conteo);
     }
-
-    // -------------------------------------------------------------------------
-    // BUG-1 corregido: constructor Insert(String) asigna la tabla
-    // -------------------------------------------------------------------------
-
     /**
      * BUG-1 corregido: Insert(String table) ahora asigna this.table, por lo que
      * el SQL generado usa el nombre real de la tabla.
