@@ -24,7 +24,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import java.util.stream.Collectors;
 
 /**
  * @author Pablo Eduardo Martinez Solis
@@ -110,6 +109,8 @@ final class Parameter {
      * @param parameterToRemove
      */
     void filterParameter(List<String> parameterToRemove) {
-        parameterToRemove.parallelStream().forEach(p -> parameters.remove(p));
+        // A plain loop over a HashMap is faster and safe: parallelStream here would
+        // spin up the ForkJoinPool for trivial work and mutate a non-thread-safe map.
+        for (String p : parameterToRemove) parameters.remove(p);
     }
 }
