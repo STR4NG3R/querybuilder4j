@@ -49,6 +49,11 @@ public class Constants {
         " LIMIT :low OFFSET :upper");
     m.put(calculatedKey(SqlDialect.Postgres.sqlDialect, Actions.PAGINATION),
         " LIMIT :low OFFSET :upper");
+    // Plain row limit (no offset), used by keyset/cursor pagination.
+    m.put(calculatedKey(SqlDialect.Oracle.sqlDialect, Actions.LIMIT),
+        " FETCH FIRST :low ROWS ONLY");
+    m.put(calculatedKey(SqlDialect.Sql.sqlDialect, Actions.LIMIT),
+        " LIMIT :low");
     dialectConstants = Collections.unmodifiableMap(m);
   }
 
@@ -63,7 +68,7 @@ public class Constants {
   }
 
   public enum Actions {
-    SEPARATOR, PAGINATION, CREATEPK;
+    SEPARATOR, PAGINATION, LIMIT, CREATEPK;
   };
 
   private String sqlDialect = SqlDialect.Sql.sqlDialect;

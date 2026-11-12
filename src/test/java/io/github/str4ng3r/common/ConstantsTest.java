@@ -57,7 +57,7 @@ public class ConstantsTest {
                     assertNotNull("El valor de paginación no debe ser null", v);
                     assertTrue(v.contains("OFFSET"));
                     // El mapa compartido debe estar completo
-                    assertEquals(6, Constants.dialectConstants.size());
+                    assertEquals(8, Constants.dialectConstants.size());
                 } catch (Throwable t) {
                     errores.add(t);
                 } finally {

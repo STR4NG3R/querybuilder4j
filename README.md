@@ -16,6 +16,7 @@ This project can be used in any kind of Java project since it has no runtime dep
 * **Incremental building**: add fields (`addSelect`), tables (`addFrom`), filters (`andWhere`), order columns (`orderBy` accumulates) and `GROUP BY` / `HAVING`.
 * **`UPDATE` helpers**: ordered `SET` via `LinkedHashMap` and column exclusion with `excludeColumns`.
 * **Dialect-aware pagination** for MySQL, Oracle, PostgreSQL and generic SQL.
+* **Keyset (cursor) pagination** with `keyset(limit, after)`: constant cost per page, no `COUNT`, no `OFFSET`.
 * **Safety guards**: mandatory `WHERE` for `UPDATE`/`DELETE`, column/value symmetry check for `INSERT`, input validation (null/empty), and an immutable parameter list.
 * **Two output shapes**: an ordered list of parameters or a name→value dictionary.
 * **Zero runtime dependencies** and no database connection required to build queries.
@@ -164,12 +165,12 @@ SqlParameter r = new Selector()
 
 <a name="block2.6"></a>
 ### 2.6. ORDER BY [↑](#index_block)
-`orderBy(column, descending)` can be called multiple times; the columns accumulate in order.
+`orderBy(column, Order.ASC | Order.DESC)` can be called multiple times; the columns accumulate in order. The `orderBy(column, boolean descending)` form still works.
 ```java
 SqlParameter r = new Selector()
         .select("pedidos")
-        .orderBy("fecha", true)   // DESC
-        .orderBy("total", false)  // ASC
+        .orderBy("fecha", Order.DESC)
+        .orderBy("total", Order.ASC)
         .getSqlAndParameters();
 // SELECT * FROM pedidos ORDER BY fecha DESC, total ASC
 ```
@@ -316,6 +317,34 @@ offset `10`):
 `getCount(sql)` wraps a query in `SELECT COUNT(*) FROM ( ... )` (adding a
 `temp_count` alias for MySQL) so you can obtain the total before paginating.
 A `currentPage` below `1` throws `InvalidCurrentPageException`.
+
+### Keyset (cursor) pagination
+`OFFSET` pagination gets slower the deeper the page and can skip or repeat rows when
+data changes between requests. `keyset(limit, after)` instead filters by the last-seen
+values of the `ORDER BY` columns, so every page costs the same and no `COUNT` is needed.
+
+```java
+Selector s = new Selector()
+        .select("users", "id", "name", "createdAt")
+        .orderBy("createdAt", Order.DESC)   // sort key...
+        .orderBy("id", Order.DESC)          // ...ending in a unique column
+        .setDialect(Constants.SqlDialect.Postgres)
+        .keyset(11, Arrays.asList(lastCreatedAt, lastId)); // null `after` = first page
+// SELECT ... WHERE ((createdAt < ?) OR (createdAt = ? AND id < ?))
+//   ORDER BY createdAt DESC, id DESC LIMIT 11
+```
+
+* One value per `ORDER BY` column, in order; values are always bound as parameters.
+* Columns may mix `ASC`/`DESC`; order columns must be `NOT NULL`.
+* The predicate is expanded (not `(a,b) < (x,y)`) because Oracle lacks row-value comparison.
+* Row limit per dialect: `LIMIT n` (MySQL/Postgres/SQL), `FETCH FIRST n ROWS ONLY` (Oracle).
+* Ask for `pageSize + 1` rows: if you get the extra one, there is a next page.
+* `getOrderColumns()` returns the sort key so you can build the next cursor.
+
+**Offset or keyset?** Use `Pagination` (offset) when you need "go to page N" or a total
+count and tables are small/medium. Use `keyset` for large tables, feeds and exports: offset
+cost grows with the page depth and rows can be skipped or repeated if data changes between
+requests. `Pagination` is unchanged; `keyset` is an addition.
 
 <a name="block8"></a>
 ## 8. Real-world usage [↑](#index_block)
@@ -586,7 +615,7 @@ Quick reference of the public builder API and the guards enforced when building.
 | `getSqlAndParametersDictionarie()` | Returns `SqlParameter` with a name→value map. |
 
 **`Selector` only:** `select(table, fields...)`, `addSelect(fields...)`,
-`orderBy(col, descending)` (accumulates), `groupBy(cols)`,
+`orderBy(col, Order)` / `orderBy(col, descending)` (accumulates), `groupBy(cols)`,
 `having(criteria, lambda)`, `andHaving(criteria, lambda)`,
 `getCount(sql)`, `setPagination(sqlParameter, pagination)`.
 

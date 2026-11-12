@@ -36,6 +36,9 @@ public class Selector extends QueryBuilder<Selector> {
     private OrderGroupBy groupBy;
     private WhereHaving having;
     private boolean withDeleted = true;
+    // Keyset (cursor) pagination state. keysetLimit == null means disabled.
+    private Integer keysetLimit;
+    private java.util.List<Object> keysetAfter;
     // table name -> soft-delete column. Only listed tables get the IS NULL filter.
     private java.util.Map<String, String> softDeleteColumns;
 
@@ -127,6 +130,23 @@ public class Selector extends QueryBuilder<Selector> {
     }
 
     /**
+     * Add order by to statement using a readable direction.
+     *
+     * <pre>{@code
+     * selector.orderBy("createdAt", Order.DESC).orderBy("id", Order.DESC);
+     * }</pre>
+     *
+     * @param orderBy column (or expression) to sort by
+     * @param order   {@link Order#ASC} or {@link Order#DESC}
+     * @return same object as pipe
+     */
+    public Selector orderBy(String orderBy, Order order) {
+        if (order == null)
+            throw new IllegalArgumentException("Order direction must not be null");
+        return orderBy(orderBy, order.isDescending());
+    }
+
+    /**
      * Add group by to statement
      * Pass columns to group by separae by ,
      *
@@ -166,6 +186,83 @@ public class Selector extends QueryBuilder<Selector> {
             this.having = new WhereHaving(" HAVING ", this.parameter);
         this.having.andAddCriteria(criteria, parameters);
         return this;
+    }
+
+    /**
+     * Columns of the ORDER BY clause, in declaration order. Cursor pagination
+     * uses them as the sort key.
+     *
+     * @return unmodifiable list of order-by columns (empty if none)
+     */
+    public java.util.List<String> getOrderColumns() {
+        return this.orderBy == null ? java.util.Collections.<String>emptyList() : this.orderBy.columns();
+    }
+
+    /**
+     * Enables keyset (cursor) pagination. Rows strictly after {@code after}
+     * (following the ORDER BY of this selector) are returned, limited to
+     * {@code limit} rows. No OFFSET is used, so the cost does not grow with the
+     * depth of the page.
+     * <p>
+     * The ORDER BY must be declared (with {@link #orderBy(String, boolean)})
+     * and must end with a unique column so the order is total. Each value in
+     * {@code after} maps positionally to an ORDER BY column and is always bound
+     * as a parameter.
+     *
+     * @param limit max rows to return (pass pageSize + 1 to detect a next page)
+     * @param after last-seen values of the order columns, or null for the first page
+     * @return same object as pipe
+     */
+    public Selector keyset(int limit, java.util.List<Object> after) {
+        if (limit < 1)
+            throw new IllegalArgumentException("The limit must be greater than 0");
+        this.keysetLimit = limit;
+        this.keysetAfter = after == null ? null : new java.util.ArrayList<>(after);
+        return this;
+    }
+
+    /**
+     * Disables keyset pagination on this selector, restoring the plain query
+     * (no cursor predicate, no row limit).
+     *
+     * @return same object as pipe
+     */
+    public Selector clearKeyset() {
+        this.keysetLimit = null;
+        this.keysetAfter = null;
+        return this;
+    }
+
+    /**
+     * Builds (c1 > :ks0) OR (c1 = :ks0 AND c2 > :ks1) ... honoring the
+     * direction of each column. Expanded form instead of row values
+     * "(a,b) > (x,y)" because Oracle does not support it and it allows mixed
+     * ASC/DESC.
+     */
+    private String keysetPredicate() throws InvalidSqlGenerationException {
+        java.util.List<String> cols = getOrderColumns();
+        if (cols.isEmpty())
+            throw new InvalidSqlGenerationException("Keyset pagination requires an ORDER BY");
+        if (keysetAfter.size() != cols.size())
+            throw new InvalidSqlGenerationException("Cursor has " + keysetAfter.size()
+                    + " values but ORDER BY has " + cols.size() + " columns");
+        for (int i = 0; i < cols.size(); i++) {
+            if (keysetAfter.get(i) == null)
+                throw new InvalidSqlGenerationException(
+                        "Cursor value for '" + cols.get(i) + "' is null; order columns must be NOT NULL");
+            this.parameter.addParameter("ks" + i, keysetAfter.get(i));
+        }
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < cols.size(); i++) {
+            if (i > 0)
+                sb.append(" OR ");
+            sb.append('(');
+            for (int j = 0; j < i; j++)
+                sb.append(cols.get(j)).append(" = :ks").append(j).append(" AND ");
+            sb.append(cols.get(i)).append(this.orderBy.isDescending(i) ? " < " : " > ").append(":ks").append(i);
+            sb.append(')');
+        }
+        return sb.toString();
     }
 
     public String getCount(String sql) {
@@ -212,6 +309,11 @@ public class Selector extends QueryBuilder<Selector> {
 
         this.where.write(sql);
 
+        if (this.keysetLimit != null && this.keysetAfter != null) {
+            sql.append(this.where.getListFilterCriteria().isEmpty() ? " WHERE (" : " AND (")
+                    .append(keysetPredicate()).append(')');
+        }
+
         if (this.groupBy != null)
             sql.append(" GROUP BY ").append(this.groupBy.write());
 
@@ -220,6 +322,13 @@ public class Selector extends QueryBuilder<Selector> {
 
         if (this.orderBy != null)
             sql.append(" ORDER BY ").append(this.orderBy.write());
+
+        if (this.keysetLimit != null) {
+            if (this.orderBy == null)
+                throw new InvalidSqlGenerationException("Keyset pagination requires an ORDER BY");
+            sql.append(constants.replaceValues(constants.getAction(Constants.Actions.LIMIT),
+                    Integer.toString(this.keysetLimit)));
+        }
 
         return sql.toString();
     }

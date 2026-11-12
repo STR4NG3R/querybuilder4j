@@ -24,12 +24,25 @@ package io.github.str4ng3r.common;
  */
 class OrderGroupBy {
   String orderBy;
+  // Structured view of the ORDER BY items, used by keyset (cursor) pagination.
+  private final java.util.List<String> columns = new java.util.ArrayList<>();
+  private final java.util.List<Boolean> descendingFlags = new java.util.ArrayList<>();
 
   public void orderBy(String orderBy, boolean descending) {
+    this.columns.add(orderBy);
+    this.descendingFlags.add(descending);
     String column = descending ? orderBy + " DESC" : orderBy + " ASC";
     this.orderBy = (this.orderBy == null || this.orderBy.isEmpty())
         ? column
         : this.orderBy + ", " + column;
+  }
+
+  java.util.List<String> columns() {
+    return java.util.Collections.unmodifiableList(columns);
+  }
+
+  boolean isDescending(int index) {
+    return descendingFlags.get(index);
   }
 
   public void groupBy(String groupBy) {
