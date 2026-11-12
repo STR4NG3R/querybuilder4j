@@ -74,7 +74,7 @@ Step 2. Add the dependency
 <dependency>
     <groupId>com.github.STR4NG3R</groupId>
     <artifactId>querybuilder4j</artifactId>
-    <version>1.1.1</version>
+    <version>1.3.0</version>
 </dependency>
 ```
 
